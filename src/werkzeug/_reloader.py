@@ -3,6 +3,7 @@ import subprocess
 import sys
 import threading
 import time
+import re
 from itertools import chain
 
 from ._compat import iteritems
@@ -39,20 +40,23 @@ def _iter_module_files():
                     filename = filename[:-1]
                 yield filename
 
+def _is_watchable_path(path, ignore_pattern=None):
+    return not ignore_pattern or not re.search(ignore_pattern, path)
 
-def _find_observable_paths(extra_files=None):
+def _find_observable_paths(extra_files=None, ignore_pattern=None):
     """Finds all paths that should be observed."""
     rv = set(
         os.path.dirname(os.path.abspath(x)) if os.path.isfile(x) else os.path.abspath(x)
-        for x in sys.path
+        for x in sys.path if _is_watchable_path(x, ignore_pattern=ignore_pattern)
     )
 
     for filename in extra_files or ():
-        rv.add(os.path.dirname(os.path.abspath(filename)))
+        if _is_watchable_path(filename, ignore_pattern=ignore_pattern):
+            rv.add(os.path.dirname(os.path.abspath(filename)))
 
     for module in list(sys.modules.values()):
         fn = getattr(module, "__file__", None)
-        if fn is None:
+        if fn is None or not _is_watchable_path(fn, ignore_pattern=ignore_pattern):
             continue
         fn = os.path.abspath(fn)
         rv.add(os.path.dirname(fn))
@@ -150,9 +154,10 @@ class ReloaderLoop(object):
     # `eventlet.monkey_patch`) before we get here
     _sleep = staticmethod(time.sleep)
 
-    def __init__(self, extra_files=None, interval=1):
+    def __init__(self, extra_files=None, interval=1, ignore_pattern=None):
         self.extra_files = set(os.path.abspath(x) for x in extra_files or ())
         self.interval = interval
+        self.ignore_pattern = ignore_pattern
 
     def run(self):
         pass
@@ -270,7 +275,7 @@ class WatchdogReloaderLoop(ReloaderLoop):
         try:
             while not self.should_reload:
                 to_delete = set(watches)
-                paths = _find_observable_paths(self.extra_files)
+                paths = _find_observable_paths(self.extra_files, ignore_pattern=self.ignore_pattern)
                 for path in paths:
                     if path not in watches:
                         try:
@@ -322,11 +327,11 @@ def ensure_echo_on():
         termios.tcsetattr(sys.stdin, termios.TCSANOW, attributes)
 
 
-def run_with_reloader(main_func, extra_files=None, interval=1, reloader_type="auto"):
+def run_with_reloader(main_func, extra_files=None, interval=1, reloader_type="auto", ignore_pattern=None):
     """Run the given function in an independent python interpreter."""
     import signal
 
-    reloader = reloader_loops[reloader_type](extra_files, interval)
+    reloader = reloader_loops[reloader_type](extra_files, interval, ignore_pattern=ignore_pattern)
     signal.signal(signal.SIGTERM, lambda *args: sys.exit(0))
     try:
         if os.environ.get("WERKZEUG_RUN_MAIN") == "true":

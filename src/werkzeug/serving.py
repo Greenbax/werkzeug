@@ -849,6 +849,7 @@ def run_simple(
     static_files=None,
     passthrough_errors=False,
     ssl_context=None,
+    ignore_pattern=None,
 ):
     """Start a WSGI application. Optional features include a reloader,
     multithreading and fork support.
@@ -918,6 +919,9 @@ def run_simple(
                         ``(cert_file, pkey_file)``, the string ``'adhoc'`` if
                         the server should automatically create one, or ``None``
                         to disable SSL (which is the default).
+    :param ignore_pattern: a regular expression for files that should be
+                            ignored by the reloader.  Ignored files are not
+                            watched for changes.
     """
     if not isinstance(port, int):
         raise TypeError("port must be an integer")
@@ -1007,7 +1011,7 @@ def run_simple(
         # breaks.
         from ._reloader import run_with_reloader
 
-        run_with_reloader(inner, extra_files, reloader_interval, reloader_type)
+        run_with_reloader(inner, extra_files, reloader_interval, reloader_type, ignore_pattern=ignore_pattern)
     else:
         inner()
 
