@@ -232,7 +232,9 @@ class WatchdogReloaderLoop(ReloaderLoop):
                 self.trigger_reload(filename)
             dirname = os.path.dirname(filename)
             if dirname.startswith(tuple(self.observable_paths)):
-                if filename.endswith((".pyc", ".pyo", ".py")):
+                if filename.endswith((".pyc", ".pyo", ".py")) and _is_watchable_path(
+                    filename, ignore_pattern=self.ignore_pattern
+                ):
                     self.trigger_reload(filename)
 
         class _CustomHandler(FileSystemEventHandler):
