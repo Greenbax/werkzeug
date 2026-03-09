@@ -888,15 +888,15 @@ class Rule(RuleFactory):
 
         def _parts(ops):
             parts = [
-                _convert(elem) if is_dynamic else ast.Str(s=elem)
+                _convert(elem) if is_dynamic else ast.Constant(value=elem)
                 for is_dynamic, elem in ops
             ]
-            parts = parts or [ast.Str("")]
+            parts = parts or [ast.Constant("")]
             # constant fold
             ret = [parts[0]]
             for p in parts[1:]:
-                if isinstance(p, ast.Str) and isinstance(ret[-1], ast.Str):
-                    ret[-1] = ast.Str(ret[-1].s + p.s)
+                if isinstance(p, ast.Constant) and isinstance(ret[-1], ast.Constant):
+                    ret[-1] = ast.Constant(ret[-1].value + p.value)
                 else:
                     ret.append(p)
             return ret
@@ -944,7 +944,7 @@ class Rule(RuleFactory):
                 func_ast.args.args.append(ast.Name(arg, ast.Param()))
             func_ast.args.kwarg = ".kwargs"
         for _ in kargs:
-            func_ast.args.defaults.append(ast.Str(""))
+            func_ast.args.defaults.append(ast.Constant(""))
         func_ast.body = body
 
         # use `ast.parse` instead of `ast.Module` for better portability
